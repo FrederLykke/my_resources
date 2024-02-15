@@ -127,14 +127,22 @@ This yields 12.05 and 2.08, which deviates a little from my original 12 and 2.
 ### Ex. 1.2
 Sketching a regression model and data: Figure 1.1b shows data corresponding to the fitted line y = 46.3 + 3.0x with residual standard deviation 3.9, and values of x ranging roughly from 0 to 4%.
 ("Sketch" or "graph"= means simulate i.e. skething data means make some data yourself :) )
-```{r}
-
-```
 
 
 #### Ex. 1.2.a) Sketch hypothetical data with the same range of x but corresponding to the line y = 30 + 10x with residual standard deviation 3.9.
 * If you're not sure how to approach this exercise, try and go by the piecemeal hint-intruction in the bottom of this doc :)
 ```{r}
+intercept <- 30
+
+slope <- 10
+
+error <- 3.9 
+
+# use r_norm??
+rnorm(400, mean=12, sd=2)
+
+# use seq() to make the from 0% to 4% range in x??
+seq(0.0, 0.04, by=)
 
 ```
 
