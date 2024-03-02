@@ -193,7 +193,7 @@ abline(coef(lm2), col="gray")
 ```{r}
 # Load the directory to the data and read the csv:
 setwd("C:\\my_resources\\classes\\data\\Names\\data")
-allnames <- read.csv("allnames_clean.csv")
+allnames_clean <- read.csv("allnames_clean.csv")
 
 #???????????
 
