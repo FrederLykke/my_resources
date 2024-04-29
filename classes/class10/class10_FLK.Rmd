@@ -54,10 +54,14 @@ Check whether this looks like a Gaussian by plotting density plot and a qq-plot.
 ```{r}
 # Plotting density plot:
 ggplot(data, aes(x = y)) +
-    geom_density()
+    geom_density(colour = colours[1], alpha = 0.1)
 
 # QQ-plot:
 qqnorm(data$y)
+#or:
+ggplot(data, aes(sample = y)) +
+    stat_qq(colour = colours[1]) +
+    stat_qq_line()
 ```
 
 ## Construct a general linear model (GLM)
@@ -139,6 +143,9 @@ Now, let's see how the regression line we've estimated (with intercept $\hat{\be
 #The formula is beta_hat = (X^t * X)^-1 * X^t * y
 bhat <- solve(t(X) %*% X) %*% t(X) %*% y #solve() inverts the matrix, t() is the transpose
 
+#Show bhat to see the estimators (intercept and slope):
+bhat
+
 ggplot(data, aes(x = x, y = y)) +
     geom_point(colour = colours[1]) +
     geom_abline(intercept = b[1], slope = b[2]) +
@@ -152,14 +159,13 @@ Make a linear regression fit using lm() and compare with the $\hat\beta$-values 
 
 ```{r}
 #Linear regression fit using lm():
-lm <- lm(y ~ x, data = data)
+lmfit1 <- lm(y ~ x, data = data)
 
 #Compare the coefficients from the OLS solution with the coefficients from lm():
-coef(lm)
-
-#Show bhat to see the estimators (intercept and slope):
-bhat
+bhat - coef(lmfit1)
 ```
+Lm() does give the same result as OLS (the difference between coefficient estimates is almost zero, except for tiny rounding errors).
+
 
 # 1. Regression: grade point average and household income
 The following exercise is loosely based on 9.1 on ROS. The purpose is to perform linear regression with using bayesian inference tools to assess uncertainty.
@@ -187,14 +193,14 @@ This means that our choices for intercept and slope are
 $$\boldsymbol{\beta} = \begin{bmatrix} \beta_0 \\ \beta_1 \end{bmatrix} = \begin{bmatrix} 2.375 \\ 0.005 \end{bmatrix}$$
 
 ```{r}
-b <- c(2.375, 0.005)
+b <- c(2.375, 0.005) #Intercept and slope
 ```
 
 ## Simulate and estimate
 With the slope and intercept estimated leaves us with the choice of error standard deviation. While we assume household income to be somewhat predictive of GPA, we don't expect it to allow very precise predictions since there will be other, more important influences. A sensible choice might be $\sigma = 0.4$.
 
 ```{r}
-sigma <- 0.4
+sigma <- 0.4 #Error standard deviation
 ```
 
 **Exercise**
@@ -202,28 +208,25 @@ Now sample 256 simulated GPAs for household incomes uniformly from \$15,000 to \
 Plot the sampled data along with a regression line using the slope and intercept from before. Remember to add the error term.
 
 ```{r}
-# Define parameters
-n <- 256  # Number of samples
-income_range <- c(15, 300)  # Income range in thousands of dollars
-sigma <- 0.4  # Error standard deviation
-b <- c(2.375, 0.005)  # Intercept and slope
+#Define parameters:
+n <- 256  #Number of samples
 
-# Simulate household incomes uniformly
-incomes <- runif(n, min = income_range[1], max = income_range[2])
+#Simulate household incomes uniformly:
+x <- runif(n, min = 15, max = 300)
 
-# Calculate simulated GPAs
-error <- rnorm(n, mean = 0, sd = sigma)
-gpa <- b[1] + b[2] * incomes + error
+#Calculate simulated GPAs:
+err <- rnorm(n, mean = 0, sd = sigma)
+y <- b[1] + b[2]*x + err
+sim = tibble(x, y)
 
-# Create a data frame for plotting
-data <- data.frame(income = incomes, gpa = gpa)
-
-# Plot the sampled data along with regression line
-ggplot(data, aes(x = income, y = gpa)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE, color = "lightblue") +  # Add regression line
-  labs(x = "Household Income", y = "GPA", title = "Simulated GPA vs. Household Income") + 
-  theme_minimal()
+#Plot the sampled data along with regression line:
+sim %>% #pipe into the "sim" tibble
+  ggplot(aes(x = x, y = y)) + 
+    geom_point() +
+    geom_abline(intercept = b[1], slope = b[2], colour = colours[1]) +
+    labs(title = "Simulated data from ground truth model",
+         x = "Household income [thousands of dollars]",
+         y = "Grade point average")
 ```
 
 **Exercise**
@@ -231,9 +234,10 @@ Now use `stan_glm()` to fit a regression line through our scatter plot. If you w
 
 ```{r}
 #Using stan_glm to fit a regression line:
-fit1 <- stan_glm(gpa ~ income, data = data)
-print(fit1, digits=2)
+fit1 <- stan_glm(y ~ x, data = sim, refresh = 0)
 
+#See the output:
+summary(fit1, digits = 4)
 ```
 
 Using the function `mcmc_areas()` from the `bayesplot` package, we can plot the posterior densities from the stan_glm estimation. 
@@ -245,13 +249,16 @@ Here we plot them separately as they are on very different scales in our case.
 
 ```{r}
 mcmc_areas(fit1, pars = "(Intercept)", prob = 0.5, prob_outer = 1)
-mcmc_areas(fit1, pars = "income", prob = 0.5, prob_outer = 1) #Pernille had written "x" instead of "income"
+mcmc_areas(fit1, pars = "x", prob = 0.5, prob_outer = 1)
 mcmc_areas(fit1, pars = "sigma", prob = 0.5, prob_outer = 1)
 ```
+Solution:
+The posterior plots are showing the posterior samples from the Bayesian inference (performed with Markov chain Monte Carlo sampling). In this case the mean of the posterior distribution is used as the parameter (intercept = 2.3879, x = 0.0047, sigma = 0.3743).
+
 
 Now let's add the fitted regression line to our plot.
 ```{r}
-sim %>% ggplot(aes(x = x, y = gpa)) +
+sim %>% ggplot(aes(x = x, y = y)) +
     geom_point() +
     geom_abline(intercept = b[1], slope = b[2], colour = colours[1]) +
     geom_abline(intercept = coef(fit1)[1], slope = coef(fit1)[2], colour = colours[2])
@@ -270,8 +277,13 @@ First, we calculate the point predictions. That is what are the corresponding y-
 Use the predict() function along with fit1 to make point predictions
 
 ```{r}
-#Use the predict() function to make point predictions:
+y_pointpred <- predict(fit1, newdata = new)
 
+#Add names to make it easier to interpret:
+names(y_pointpred) <- c("$40k", "$80k")
+
+#Show the point predictions:
+y_pointpred
 ```
 
 Your point predictions are calculated using our fitted regression line, and both the intercept and slope of that are uncertain. This uncertainty should be reflected in our predictions. We can achieve this with the function `posterior_linpred()`.
@@ -313,6 +325,9 @@ Discuss the above plot with your neighbor. What can we say about the difference 
 ```{r}
 # Your solution goes here
 ```
+Solution:
+While the difference of the means can be predicted quite precisely, the difference between two individuals is predicted to vary very widely.
+
 
 hint1*: Remember that you can transpose a matrix using t() and that solve() gives you the inverse matrix.
 
